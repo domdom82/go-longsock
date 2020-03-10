@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/gorilla/websocket"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -18,11 +19,12 @@ func main() {
 	}
 
 	flag.Parse()
+	log.SetFlags(log.LstdFlags | log.LUTC)
 
 	if flag.Arg(0) != "" {
 		// client mode
 		serverURL := flag.Arg(0)
-		fmt.Printf("Connecting to %s\n", serverURL)
+		log.Printf("Connecting to %s\n", serverURL)
 
 		conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
 		if err != nil {
@@ -32,7 +34,7 @@ func main() {
 
 	} else {
 		//server mode
-		fmt.Println("Starting server...")
+		log.Println("Starting server...")
 		var upgrader = websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -53,22 +55,22 @@ func main() {
 func handleConnection(conn *websocket.Conn) {
 	defer func() {
 		_ = conn.Close()
-		fmt.Printf("Closed connection to %s\n", conn.RemoteAddr().String())
+		log.Printf("Closed connection to %s\n", conn.RemoteAddr().String())
 	}()
 
-	fmt.Printf("Connected to %s\n", conn.RemoteAddr().String())
+	log.Printf("Connected to %s\n", conn.RemoteAddr().String())
 
-	for {
-		if err := conn.WriteMessage(websocket.TextMessage, []byte("ping")); err != nil {
-			fmt.Println(err)
+	for i := 0; ; i++ {
+		if err := conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("ping %d", i))); err != nil {
+			log.Println(err)
 			return
 		}
 		_, p, err := conn.ReadMessage()
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			return
 		}
-		fmt.Printf("received '%s' from %s\n", p, conn.RemoteAddr().String())
+		log.Printf("Received '%s' from %s\n", p, conn.RemoteAddr().String())
 		time.Sleep(time.Second)
 	}
 
