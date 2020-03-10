@@ -20,6 +20,7 @@ func main() {
 
 	flag.Parse()
 	log.SetFlags(log.LstdFlags | log.LUTC)
+	log.SetOutput(os.Stdout)
 
 	if flag.Arg(0) != "" {
 		// client mode
