@@ -59,10 +59,10 @@ func main() {
 func handleConnection(conn *websocket.Conn) {
 	defer func() {
 		_ = conn.Close()
-		log.Printf("Closed connection to %s\n", conn.RemoteAddr().String())
+		log.Printf("Closed connection: %s -> %s\n", conn.LocalAddr().String(), conn.RemoteAddr().String())
 	}()
 
-	log.Printf("Connected to %s\n", conn.RemoteAddr().String())
+	log.Printf("New connection: %s -> %s\n", conn.LocalAddr().String(), conn.RemoteAddr().String())
 
 	for i := 0; ; i++ {
 		msg := fmt.Sprintf("ping %d", i)
