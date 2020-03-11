@@ -42,6 +42,9 @@ func main() {
 		}
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if forwardedFor := r.Header.Get("x-forwarded-for"); forwardedFor != "" {
+				log.Printf("x-forwarded-for: %s\n", forwardedFor)
+			}
 			conn, err := upgrader.Upgrade(w, r, nil)
 			if err != nil {
 				panic(err)
@@ -62,16 +65,18 @@ func handleConnection(conn *websocket.Conn) {
 	log.Printf("Connected to %s\n", conn.RemoteAddr().String())
 
 	for i := 0; ; i++ {
-		if err := conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("ping %d", i))); err != nil {
+		msg := fmt.Sprintf("ping %d", i)
+		if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
 			log.Println(err)
 			return
 		}
+		log.Printf("-> Sent '%s' to %s\n", msg, conn.RemoteAddr().String())
 		_, p, err := conn.ReadMessage()
 		if err != nil {
 			log.Println(err)
 			return
 		}
-		log.Printf("Received '%s' from %s\n", p, conn.RemoteAddr().String())
+		log.Printf("<- Received '%s' from %s\n", p, conn.RemoteAddr().String())
 		time.Sleep(time.Second)
 	}
 
