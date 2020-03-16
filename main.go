@@ -12,9 +12,13 @@ import (
 
 func main() {
 
+	retry := flag.Bool("retry", false, "Reconnect after disconnection (client only)")
+
 	flag.Usage = func() {
-		fmt.Printf("Usage: %s [server-url] \n", os.Args[0])
+		fmt.Printf("Usage: %s [options] [server-url] \n", os.Args[0])
 		fmt.Println("If server-url given, launch as client. Otherwise launch as server.")
+		fmt.Println("Options:")
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
@@ -27,11 +31,19 @@ func main() {
 		serverURL := flag.Arg(0)
 		log.Printf("Connecting to %s\n", serverURL)
 
-		conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
-		if err != nil {
-			panic(err)
+		connect := func() error {
+			conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+			return handleConnection(conn)
 		}
-		handleConnection(conn)
+		if *retry {
+			withRetry(connect)
+		} else {
+			connect()
+		}
 
 	} else {
 		//server mode
@@ -49,14 +61,14 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			handleConnection(conn)
+			_ = handleConnection(conn)
 
 		})
-		http.ListenAndServe(":8080", mux)
+		_ = http.ListenAndServe(":8080", mux)
 	}
 }
 
-func handleConnection(conn *websocket.Conn) {
+func handleConnection(conn *websocket.Conn) error {
 	defer func() {
 		_ = conn.Close()
 		log.Printf("Closed connection: %s -> %s\n", conn.LocalAddr().String(), conn.RemoteAddr().String())
@@ -68,16 +80,25 @@ func handleConnection(conn *websocket.Conn) {
 		msg := fmt.Sprintf("ping %d", i)
 		if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
 			log.Println(err)
-			return
+			return err
 		}
 		log.Printf("-> Sent '%s' to %s\n", msg, conn.RemoteAddr().String())
 		_, p, err := conn.ReadMessage()
 		if err != nil {
 			log.Println(err)
-			return
+			return err
 		}
 		log.Printf("<- Received '%s' from %s\n", p, conn.RemoteAddr().String())
 		time.Sleep(time.Second)
 	}
 
+}
+
+func withRetry(f func() error) {
+	err := f()
+
+	if err != nil {
+		time.Sleep(time.Second)
+		withRetry(f)
+	}
 }
